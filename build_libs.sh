@@ -1,5 +1,6 @@
 #!/bin/sh -e
 
+LIBQUIC_REVISION=679afdae95012ed2ba87d03229da8a4c59a33231
 ARCH_TYPE=$(uname -m)
 OS_TYPE=$(uname -s)
 
@@ -40,6 +41,7 @@ if [ ! -d libquic ]; then
 fi
 
 cd libquic
+git checkout $LIBQUIC_REVISION
 rm -fr build
 mkdir -p build
 cd build
