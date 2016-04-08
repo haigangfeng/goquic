@@ -49,6 +49,12 @@ void GoQuicSimpleServerStream::OnDataAvailable() {
   }
   if (!sequencer()->IsClosed()) {
     sequencer()->SetUnblocked();
+
+    // Call OnDataAvailable here instead of all data has been read
+    GoQuicSimpleServerStreamOnDataAvailable_C(go_quic_simple_server_stream_,
+                                              body_.data(), body_.length(),
+                                              sequencer()->IsClosed());
+    body_.clear();
     return;
   }
 
@@ -63,6 +69,7 @@ void GoQuicSimpleServerStream::OnDataAvailable() {
   GoQuicSimpleServerStreamOnDataAvailable_C(go_quic_simple_server_stream_,
                                             body_.data(), body_.length(),
                                             sequencer()->IsClosed());
+  body_.clear();
 }
 
 void GoQuicSimpleServerStream::WriteOrBufferData_(
