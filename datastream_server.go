@@ -3,7 +3,7 @@ package goquic
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -18,10 +18,12 @@ type SpdyServerSession struct {
 }
 
 func (s *SpdyServerSession) CreateIncomingDynamicStream(quicServerStream *QuicServerStream, streamId uint32) DataStreamProcessor {
+	r, w := io.Pipe()
 	stream := &SimpleServerStream{
 		streamId:         streamId,
 		server:           s.server,
-		buffer:           new(bytes.Buffer),
+		reader:           r,
+		writer:           w,
 		sessionFnChan:    s.sessionFnChan,
 		quicServerStream: quicServerStream,
 	}
@@ -33,7 +35,8 @@ type SimpleServerStream struct {
 	closed           bool
 	streamId         uint32 // Just for logging purpose
 	header           http.Header
-	buffer           *bytes.Buffer
+	reader           *io.PipeReader
+	writer           *io.PipeWriter
 	server           *QuicSpdyServer
 	quicServerStream *QuicServerStream
 	sessionFnChan    chan func()
@@ -45,6 +48,7 @@ func (stream *SimpleServerStream) OnInitialHeadersComplete(headerBuf []byte) {
 		// TODO(hodduc) should raise proper error
 	} else {
 		stream.header = header
+		stream.ProcessRequest()
 	}
 }
 
@@ -52,9 +56,9 @@ func (stream *SimpleServerStream) OnTrailingHeadersComplete(headerBuf []byte) {
 }
 
 func (stream *SimpleServerStream) OnDataAvailable(data []byte, isClosed bool) {
-	stream.buffer.Write(data)
+	stream.writer.Write(data)
 	if isClosed {
-		stream.ProcessRequest()
+		stream.writer.Close()
 	}
 }
 
@@ -87,7 +91,7 @@ func (stream *SimpleServerStream) ProcessRequest() {
 	url.Host = header.Get(":host")
 	req.URL = url
 	// TODO(serialx): To buffered async read
-	req.Body = ioutil.NopCloser(stream.buffer)
+	req.Body = stream.reader
 
 	// Remove SPDY headers
 	for k, _ := range header {
