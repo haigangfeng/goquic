@@ -147,6 +147,7 @@ func (w *spdyResponseWriter) Write(buffer []byte) (int, error) {
 	if !w.wroteHeader {
 		w.WriteHeader(http.StatusOK)
 	}
+	w.spdyStream.reader.Close()
 
 	copiedBuffer := make([]byte, len(buffer))
 	copy(copiedBuffer, buffer)
@@ -173,6 +174,8 @@ func (w *spdyResponseWriter) WriteHeader(statusCode int) {
 	if w.wroteHeader {
 		return
 	}
+	w.spdyStream.reader.Close()
+
 	copiedHeader := cloneHeader(w.header)
 	w.sessionFnChan <- func() {
 		copiedHeader.Set(":status", strconv.Itoa(statusCode))
